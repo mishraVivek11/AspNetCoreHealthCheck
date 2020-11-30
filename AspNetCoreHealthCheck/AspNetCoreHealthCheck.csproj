@@ -9,5 +9,10 @@
     <PackageReference Include="AspNetCore.HealthChecks.Uris" Version="3.1.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Certificates\" />
+    <Folder Include="HealthCheck\" />
+  </ItemGroup>
+
 
 </Project>
