@@ -81,32 +81,46 @@ namespace AspNetCoreHealthCheck
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHealthChecks("/health", new HealthCheckOptions() {
+                // health check for a basic liveness check
+                endpoints.MapHealthChecks("/health", new HealthCheckOptions()
+                {
+                    ResponseWriter = HealthCheckResponseWriter,
+                    AllowCachingResponses = false,
+                    //excludes other health checks and returns 200
+                    Predicate = (_) => false
+                });
+                //health check for readiness checks
+                endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions()
+                {
                     ResultStatusCodes = {
                     [HealthStatus.Healthy]=StatusCodes.Status200OK,
                     [HealthStatus.Degraded]=StatusCodes.Status500InternalServerError,
                     [HealthStatus.Unhealthy]=StatusCodes.Status503ServiceUnavailable
                     },
-                    ResponseWriter = (HttpContext context, HealthReport rpt) => {
-
-                        context.Response.ContentType = "application/json";
-
-                        var json = new JObject
-                            (
-                                new JProperty("Status", rpt.Status.ToString()),
-                                new JProperty("CheckDuration", rpt.TotalDuration.TotalSeconds.ToString("0.000")),
-                                new JProperty("Details", new JObject(rpt.Entries.Select(dictItem =>
-                             new JProperty(dictItem.Key, new JObject(
-                                 new JProperty("Status", dictItem.Value.Status.ToString()),
-                                 new JProperty("CheckDuration", dictItem.Value.Duration.TotalSeconds.ToString("0.000"))
-                                 ))
-                         )))
-                            );
-                        return context.Response.WriteAsync(json.ToString(Newtonsoft.Json.Formatting.Indented));
-                    },
-                    AllowCachingResponses =false
+                    ResponseWriter = HealthCheckResponseWriter,
+                    AllowCachingResponses = false,
+                    Predicate = (healthCheckReg) => healthCheckReg.Tags.Contains("ready")
                 });
+
             });
+        }
+
+        private Task HealthCheckResponseWriter(HttpContext context, HealthReport rpt)
+        {
+            context.Response.ContentType = "application/json";
+
+            var json = new JObject
+                (
+                    new JProperty("Status", rpt.Status.ToString()),
+                    new JProperty("CheckDuration", rpt.TotalDuration.TotalSeconds.ToString("0.000")),
+                    new JProperty("Details", new JObject(rpt.Entries.Select(dictItem =>
+                 new JProperty(dictItem.Key, new JObject(
+                     new JProperty("Status", dictItem.Value.Status.ToString()),
+                     new JProperty("CheckDuration", dictItem.Value.Duration.TotalSeconds.ToString("0.000"))
+                     ))
+             )))
+                );
+            return context.Response.WriteAsync(json.ToString(Newtonsoft.Json.Formatting.Indented));
         }
     }
 }
